@@ -159,3 +159,70 @@ int open_dhcp_socket(char *device){
 
 	return soc;
 }
+
+
+int send_dhcp_discover(int soc, u_char *client_mac){
+	struct dhcp_packet dhcp;
+	struct sockaddr_in server_sin;
+	int bytes;
+	int requested_address = 0;
+
+	memset(&dhcp, 0, sizeof(struct dhcp_packet));
+	dhcp.op_code = BOOTREQUEST;
+	dhcp.htype = HTYPE_ETHER;
+	dhcp.hlen = HTYPE_ETHER_LEN;
+	dhcp.hop_count = 0;
+	/*
+	srand = 乱数の種を変更
+	time = 時刻情報取得. NULLで戻り値を取得できる.
+	*/
+	srand(time(NULL));
+	dhcp.transaction_id = htonl(random());
+	dhcp.secs = 0x00;
+	dhcp.flags = htons(DHCP_BROADCAST_FLAG);
+	memcpy(dhcp.chaddr, client_mac, HTYPE_ETHER_LEN);
+
+	/*Magic Cookie*/
+	dhcp.options[0] = '\x63';
+	dhcp.options[1] = '\x82';
+	dhcp.options[2] = '\x53';
+	dhcp.options[3] = '\x63';
+
+	dhcp.options[4] = DHCP_OPTION_MESSAGE_TYPE;
+	dhcp.options[5] = '\x01';
+	dhcp.options[6] = DHCP_DISCOVER;
+
+	dhcp.options[7] = DHCP_OPTION_REQUESTED_ADDRESS;
+	dhcp.options[8] = '\x04';
+	memcpy(&dhcp.options[9], &requested_address, sizeof(requested_address));
+
+	memset(&server_sin, 0, sizeof(struct sockaddr_in));
+
+	server_sin.sin_family = AF_INET;
+	server_sin.sin_port = htons(DHCP_SERVER_PORT);
+	server_sin.sin_addr.s_addr = INADDR_BROADCAST;
+
+	if(bytes=sendto(soc, &dhcp, sizeof(struct dhcp_packet), 0, (struct sockaddr *)&server_sin, sizeof(server_sin))<0){
+		perror("[-]Failed to send DHCP Discover packet\n");
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+int main(int argc, char *argv[]){
+	int dhcp_soc;
+	u_char *mac;
+	char *device;
+	struct dhcp_packet dhcp;
+
+	device = "rp2";
+
+	if((dhcp_soc = open_dhcp_socket(device))!=FALSE) printf("[+]Openeded dhcp_socket\n");
+	mac = HARDWARE_ADDR;
+	if((send_dhcp_discover(dhcp_soc, mac))==TRUE) printf("[+]Sent DHCP Discover\n");
+
+	close(dhcp_soc);
+
+	return 0;
+}
