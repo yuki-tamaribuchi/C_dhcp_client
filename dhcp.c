@@ -210,6 +210,17 @@ int send_dhcp_discover(int soc, u_char *client_mac){
 	return TRUE;
 }
 
+int recv_dhcp_offer(int soc){
+	struct dhcp_packet dhcp;
+	int bytes;
+
+	if(bytes=recv(soc, &dhcp, sizeof(struct dhcp_packet), 0)<0){
+		perror("[-]Failed to recieve DHCP Offer packet\n");
+	}
+
+	return TRUE;
+}
+
 int main(int argc, char *argv[]){
 	int dhcp_soc;
 	u_char *mac;
@@ -221,6 +232,7 @@ int main(int argc, char *argv[]){
 	if((dhcp_soc = open_dhcp_socket(device))!=FALSE) printf("[+]Openeded dhcp_socket\n");
 	mac = HARDWARE_ADDR;
 	if((send_dhcp_discover(dhcp_soc, mac))==TRUE) printf("[+]Sent DHCP Discover\n");
+	if((recv_dhcp_offer(dhcp_soc))==TRUE) printf("[+]Recieved DHCP Offer\n");
 
 	close(dhcp_soc);
 
