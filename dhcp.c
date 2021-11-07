@@ -212,9 +212,14 @@ int send_dhcp_discover(int soc, u_char *client_mac){
 
 int recv_dhcp_offer(int soc){
 	struct dhcp_packet dhcp;
+	struct sockaddr_in server_sin;
 	int bytes;
 
-	if(bytes=recv(soc, &dhcp, sizeof(struct dhcp_packet), 0)<0){
+	server_sin.sin_family = AF_INET;
+	server_sin.sin_port = htons(DHCP_CLIENT_PORT);
+	server_sin.sin_addr.s_addr = INADDR_ANY;
+
+	if(bytes=recvfrom(soc, &dhcp, sizeof(struct dhcp_packet), 0, &server_sin, sizeof(struct  sockaddr_in)<0)){
 		perror("[-]Failed to recieve DHCP Offer packet\n");
 	}
 
