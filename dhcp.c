@@ -102,7 +102,7 @@ int open_dhcp_socket(char *device){
 	/* memset = メモリに指定バイト数分の値をセット */
 	memset(&client_sin, 0, sizeof(struct sockaddr_in));
 	client_sin.sin_family = AF_INET; // use IPv4
-	client_sin.sin_port = htons(DHCP_CLIENT_PORT);
+	client_sin.sin_port = htons(DHCP_SERVER_PORT);
 	client_sin.sin_addr.s_addr = INADDR_ANY; // s_addr = 4-bytes integer, INADDR_ANY = 0.0.0.0
 
 
@@ -152,9 +152,38 @@ int open_dhcp_socket(char *device){
 	addrで指定されたアドレスを割り当てる
 	addrlenのはaddrが指すアドレス構造体のサイズをバイト単位で指定する
 	*/
-	if(bind(soc, (struct sockaddr *)&client_sin, sizeof(client_sin))>0){
+	if(bind(soc, (struct sockaddr *)&client_sin, sizeof(client_sin))<0){
 		perror("[-]Failed to bind \n");
     	return FALSE;
+	}
+
+	return soc;
+}
+
+int open_dhcp_socket_for_recv(){
+	struct sockaddr_in client_sin;
+	int soc, flag;
+
+	memset(&client_sin, 0, sizeof(struct sockaddr_in));
+	client_sin.sin_family = AF_INET;
+	client_sin.sin_port = htons(DHCP_CLIENT_PORT);
+	client_sin.sin_addr.s_addr = INADDR_ANY;
+
+	if((soc = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))<0){
+		perror("[-]Failed create socket for recv\n");
+		return FALSE;
+	}
+
+	flag = 1;
+
+	if(setsockopt(soc, SOL_SOCKET, SO_REUSEADDR, (char *)&flag, sizeof(flag))<0){
+		perror("[-]Could not set reuse address option on DHCP socket\n");
+		return FALSE;
+	}
+
+	if(bind(soc, (struct sockaddr *)&client_sin, sizeof(client_sin))<0){
+		perror("[-]Failed to bind \n");
+		return FALSE;
 	}
 
 	return soc;
@@ -221,25 +250,28 @@ int recv_dhcp_offer(int soc){
 
 	if(bytes=recvfrom(soc, &dhcp, sizeof(struct dhcp_packet), 0, &server_sin, sizeof(struct  sockaddr_in)<0)){
 		perror("[-]Failed to recieve DHCP Offer packet\n");
+		return FALSE;
 	}
 
 	return TRUE;
 }
 
 int main(int argc, char *argv[]){
-	int dhcp_soc;
+	int dhcp_soc_send, dhcp_soc_recv;
 	u_char *mac;
 	char *device;
 	struct dhcp_packet dhcp;
 
 	device = "rp2";
 
-	if((dhcp_soc = open_dhcp_socket(device))!=FALSE) printf("[+]Openeded dhcp_socket\n");
+	if((dhcp_soc_send = open_dhcp_socket(device))!=FALSE) printf("[+]Opened dhcp_socket\n");
+	if((dhcp_soc_recv = open_dhcp_socket_for_recv())!=FALSE) printf("[+]Opened dhcp_socket from recv\n");
 	mac = HARDWARE_ADDR;
-	if((send_dhcp_discover(dhcp_soc, mac))==TRUE) printf("[+]Sent DHCP Discover\n");
-	if((recv_dhcp_offer(dhcp_soc))==TRUE) printf("[+]Recieved DHCP Offer\n");
+	if((send_dhcp_discover(dhcp_soc_send, mac))==TRUE) printf("[+]Sent DHCP Discover\n");
+	if((recv_dhcp_offer(dhcp_soc_recv))==TRUE) printf("[+]Recieved DHCP Offer\n");
 
-	close(dhcp_soc);
+	close(dhcp_soc_send);
+	close(dhcp_soc_recv);
 
 	return 0;
 }
