@@ -78,7 +78,8 @@ struct dhcp_packet{
 
 #define DHCP_INFINITE_TIME 0xFFFFFFFF
 
-#define DHCP_BROADCAST_FLAG 32768 //0b10000000
+/*msb 0=broadcast, 1=unicast*/
+#define DHCP_BROADCAST_FLAG 32768 //0b1000000000000000
 
 /*UDP Port Number*/
 #define DHCP_SERVER_PORT 67
@@ -102,7 +103,7 @@ int open_dhcp_socket(char *device){
 	/* memset = メモリに指定バイト数分の値をセット */
 	memset(&client_sin, 0, sizeof(struct sockaddr_in));
 	client_sin.sin_family = AF_INET; // use IPv4
-	client_sin.sin_port = htons(DHCP_SERVER_PORT);
+	client_sin.sin_port = htons(DHCP_CLIENT_PORT);
 	client_sin.sin_addr.s_addr = INADDR_ANY; // s_addr = 4-bytes integer, INADDR_ANY = 0.0.0.0
 
 
@@ -244,9 +245,11 @@ int recv_dhcp_offer(int soc){
 	struct sockaddr_in server_sin;
 	int bytes;
 
+	memset(&server_sin, 0, sizeof(struct sockaddr_in));
+
 	server_sin.sin_family = AF_INET;
-	server_sin.sin_port = htons(DHCP_CLIENT_PORT);
-	server_sin.sin_addr.s_addr = INADDR_ANY;
+	server_sin.sin_port = htons(DHCP_SERVER_PORT);
+	server_sin.sin_addr.s_addr = inet_addr("192.168.11.1");
 
 	if(bytes=recvfrom(soc, &dhcp, sizeof(struct dhcp_packet), 0, &server_sin, sizeof(struct  sockaddr_in)<0)){
 		perror("[-]Failed to recieve DHCP Offer packet\n");
